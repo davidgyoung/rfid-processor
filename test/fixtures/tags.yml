@@ -1,0 +1,13 @@
+# Read about fixtures at http://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  tag_id: MyString
+  rssi: 
+  antenna: 
+  last_seen_at: 2015-04-19
+
+two:
+  tag_id: MyString
+  rssi: 
+  antenna: 
+  last_seen_at: 2015-04-19

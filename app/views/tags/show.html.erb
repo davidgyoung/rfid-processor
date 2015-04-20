@@ -1,0 +1,24 @@
+<p id="notice"><%= notice %></p>
+
+<p>
+  <strong>Tag:</strong>
+  <%= @tag.tag_id %>
+</p>
+
+<p>
+  <strong>Rssi:</strong>
+  <%= @tag.rssi %>
+</p>
+
+<p>
+  <strong>Antenna:</strong>
+  <%= @tag.antenna %>
+</p>
+
+<p>
+  <strong>Last seen at:</strong>
+  <%= @tag.last_seen_at %>
+</p>
+
+<%= link_to 'Edit', edit_tag_path(@tag) %> |
+<%= link_to 'Back', tags_path %>
