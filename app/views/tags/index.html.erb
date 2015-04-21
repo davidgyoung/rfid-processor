@@ -1,4 +1,4 @@
-<h1>Listing tags</h1>
+<h1>Visible Tags</h1>
 
 <table>
   <thead>
@@ -7,9 +7,11 @@
       <th>Rssi</th>
       <th>Antenna</th>
       <th>Last seen at</th>
+        <!--
       <th></th>
       <th></th>
       <th></th>
+      -->
     </tr>
   </thead>
 
@@ -20,9 +22,11 @@
         <td><%= tag.rssi %></td>
         <td><%= tag.antenna %></td>
         <td><%= tag.last_seen_at %></td>
+        <!--
         <td><%= link_to 'Show', tag %></td>
         <td><%= link_to 'Edit', edit_tag_path(tag) %></td>
         <td><%= link_to 'Destroy', tag, method: :delete, data: { confirm: 'Are you sure?' } %></td>
+		-->
       </tr>
     <% end %>
   </tbody>
@@ -30,4 +34,4 @@
 
 <br>
 
-<%= link_to 'New Tag', new_tag_path %>
+<p>Updated every 10 minutes</p>

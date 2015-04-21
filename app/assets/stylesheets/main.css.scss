@@ -1,0 +1,15 @@
+body {
+  background-color: #fff;
+  color: #333;
+  font-family: verdana, arial, helvetica, sans-serif;
+  font-size: 13px;
+  line-height: 18px;
+}
+table {
+  border-spacing: 0;
+  border: 2px solid black;
+}
+td {padding: 10px; margin:10px;}
+tr:nth-child(odd) {background: #CCC}
+tr:nth-child(even) {background: #FFF}
+th {background: #000; text-align: left; padding: 10px; color:white;}
