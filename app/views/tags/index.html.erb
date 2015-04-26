@@ -3,8 +3,9 @@
 <table>
   <thead>
     <tr>
-      <th>Tag</th>
-      <th>Rssi</th>
+      <th>Tag Id</th>
+      <th>UTID</th>
+      <th>RSSI</th>
       <th>Antenna</th>
       <th>Last seen at</th>
         <!--
@@ -19,6 +20,7 @@
     <% @tags.each do |tag| %>
       <tr>
         <td><%= tag.tag_id %></td>
+        <td><%= tag.utid %></td>
         <td><%= tag.rssi %></td>
         <td><%= tag.antenna %></td>
         <td><%= tag.last_seen_at %></td>

@@ -100,7 +100,7 @@ class TagsController < ApplicationController
     end
     
     def tag_in_array_params(hash)
-      hash.permit(:tag_id, :rssi, :antenna, :last_seen_at)
+      hash.permit(:tag_id, :rssi, :antenna, :last_seen_at, :utid)
     end
 
   protected
