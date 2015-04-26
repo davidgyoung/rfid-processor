@@ -83,6 +83,8 @@ def scan_init(reader)
   #reader.taglistcustomformat('Tag:%i, Disc:%d %t, Last:%D %T, Count:%r, Ant:%a, Proto:%p, Speed:%s, rssi:%m')
   # So I have to format my own command as if I were telnetted into the box:
   #reader.sendreceive(msg="TagListCustomFormat = Tag:%i, Disc:%d %t, Last:%D %T, Count:%r, Ant:%a, Proto:%p, Speed:%s, rssi:%m", opts={})
+  #TODO: This does not seem to be working on the ebay_9900 unit as it still scans as:
+  # line is "Tag:C033 1255 1023, Disc:2015/04/25 21:11:26.082, Last:2015/04/25 21:11:26.660, Count:8, Ant:0, Proto:2"
   reader.sendreceive(msg="TagListCustomFormat = Tag:%i, Disc:%d %t, Last:%D %T, Count:%r, Ant:%a, Proto:%p, Speed:%s, rssi:%m", opts={})
   
   # Note: the line below does not work, so I use the command that follows instead
@@ -108,18 +110,31 @@ end
 
 begin
   # Grab various parameters out of a configuration file
-  config = AlienConfig.new("config.dat")
-
+  config = nil
+  if ARGV[0] == "local"
+    puts "*** RUNNING LOCALLY ***"
+    config = AlienConfig.new("config-local.dat")
+  else
+    config = AlienConfig.new("config.dat")
+  end
+  r = nil
   loop do  
-    r = nil
     begin
-      # Create the new reader
-      r = AlienReader.new
-      if r.open( config["reader_ip_address"]) # Uses default usr, pwd, port...  
-        log "Reader name: #{r.readername}"
+      open = true
+      if !r
+        open = false
+        # Create the new reader
+        r = AlienReader.new
+        open = r.open( config["reader_ip_address"]) # Uses default usr, pwd, port...  
+        log "r is #{r}"
+      end
+      
+      if open
+        log "r is #{r}"
+        #log "Reader name: #{r.readername}"
 
         available_antennas = r.antennastatus
-        log 'Connected antenna ports: ' + available_antennas 
+        log "Connected antenna ports: #{available_antennas}" # returns something like "0 1"
 
 	    old_rf_level = r.rflevel
 
@@ -155,6 +170,7 @@ begin
             json += ","
           end
           json += to_json(tag, utid) 
+          log "rssi_survey, #{tag.id}, #{tag.rssi}"
         end
         json += "]"
         log "I will post: #{json}"
@@ -162,18 +178,21 @@ begin
       else 
         log "Failed opening reader"
       end
-    rescue
+    rescue => exception
       log "Error during pass: #{$!}"
+      puts exception.backtrace
+      # Close the connection.
+      r.close if r != nil
+      r = nil
     end
-    # Close the connection.
-    r.close if r != nil
     r=nil
     log "rerunning in 1 second"
     sleep 1
   end  
-rescue
+rescue => exception
   # Print out any errors
-  log "Fatal error: " +$!
+  log "Fatal error: #{$!}"
+  puts exception.backtrace
 end
 
 log "exiting"
