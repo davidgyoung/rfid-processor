@@ -1,4 +1,4 @@
-<h1>Visible Tags</h1>
+<h1>All Tags</h1>
 
 <table>
   <thead>
@@ -7,9 +7,12 @@
       <th>UTID</th>
       <th>RSSI</th>
       <th>Antenna</th>
+      <th>Visible?</th>
+      <th>Funded?</th>
+      <th>Member?</th>
       <th>Last seen at</th>
-        <!--
       <th></th>
+        <!--
       <th></th>
       <th></th>
       -->
@@ -23,10 +26,13 @@
         <td><%= tag.utid %></td>
         <td><%= tag.rssi %></td>
         <td><%= tag.antenna %></td>
+        <td><%= tag.visible %></td>
+        <td><%= tag.funded %></td>
+        <td><%= tag.member %></td>
         <td><%= tag.last_seen_at %></td>
+        <td><%= link_to 'Edit', edit_tag_path(tag) %></td>
         <!--
         <td><%= link_to 'Show', tag %></td>
-        <td><%= link_to 'Edit', edit_tag_path(tag) %></td>
         <td><%= link_to 'Destroy', tag, method: :delete, data: { confirm: 'Are you sure?' } %></td>
 		-->
       </tr>

@@ -65,13 +65,16 @@ def utid_for_tag(reader, tag)
   puts "tag id as bytes is #{tagbytes}"
   mask = "1,32,#{tag_bit_length},#{tagbytes_comma_separated}"
   puts "mask=#{mask}"
+  # acqg2mask("C033 1255 1025")
   reader.acqg2mask(mask) # Enter mask
-  sleep(1)
+  tries = 0
   begin
     @utid_cache[tag.id] = reader.g2read("1 0 2")  # Read TID data
   rescue
     puts "error: #{$!}"
-    retry # I do not know why this fails so often with Error 154: Read error.
+    sleep(0.1)
+    tries += 1
+    retry if tries < 10 # I do not know why this fails so often with Error 154: Read error.
   end
 end
 
@@ -132,10 +135,14 @@ begin
       if open
         log "r is #{r}"
         #log "Reader name: #{r.readername}"
+        #log "Reader name: #{r.readerversion}"
+        #log "Reader name: #{r.readertype}"
+        #log "Reader name: #{r.macaddress}"
 
         available_antennas = r.antennastatus
         log "Connected antenna ports: #{available_antennas}" # returns something like "0 1"
 
+            log "GPIO state is #{r.gpio.to_i.to_s(2)}"
 	    old_rf_level = r.rflevel
 
 	    # our reader returns power in dBm *10 
@@ -151,7 +158,7 @@ begin
 	    log 'New antenna sequence: ' + r.antennasequence
 
 	    log 'Try to change power to 30.0dBm... ' 
-	    r.rflevel='290'
+	    r.rflevel='276'
 	    log 'RF Level: ' + (r.rflevel.to_f / 10).to_s + 'dBm'
 
 	    log 'Set RF modulation mode to Dense Reader Mode...'

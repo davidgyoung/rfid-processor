@@ -24,6 +24,15 @@
     <%= f.text_field :antenna %>
   </div>
   <div class="field">
+    <%= f.label :funded %><br>
+    <%= f.check_box :funded %>
+  </div>
+  <div class="field">
+    <%= f.label :member %><br>
+    <%= f.check_box :member %>
+  </div>
+
+  <div class="field">
     <%= f.label :last_seen_at %><br>
     <%= f.date_select :last_seen_at %>
   </div>

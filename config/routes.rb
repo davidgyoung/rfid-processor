@@ -1,5 +1,6 @@
 Tagviewer::Application.routes.draw do
-  resources :tags
+
+  resources :reader_events
 
   # The priority is based upon order of creation: first created -> highest priority.
   # See how all your routes lay out with "rake routes".
@@ -17,6 +18,7 @@ Tagviewer::Application.routes.draw do
   #   resources :products
   
   resources :tags
+  resources :readers
 
   # Example resource route with options:
   #   resources :products do

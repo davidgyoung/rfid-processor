@@ -11,10 +11,33 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema.define(version: 20150425204200) do
+ActiveRecord::Schema.define(version: 20150502203800) do
 
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "reader_events", force: true do |t|
+    t.integer  "reader_id"
+    t.integer  "flow_number"
+    t.string   "event"
+    t.string   "tag_id"
+    t.datetime "created_at"
+    t.datetime "updated_at"
+  end
+
+  create_table "readers", force: true do |t|
+    t.string   "name"
+    t.string   "description"
+    t.string   "mac_address"
+    t.string   "version"
+    t.string   "ip_address"
+    t.string   "model"
+    t.datetime "last_seen_at"
+    t.boolean  "proceed_signal"
+    t.boolean  "cancel_signal"
+    t.datetime "created_at"
+    t.datetime "updated_at"
+  end
 
   create_table "tags", force: true do |t|
     t.string   "tag_id"
@@ -24,6 +47,10 @@ ActiveRecord::Schema.define(version: 20150425204200) do
     t.datetime "created_at"
     t.datetime "updated_at"
     t.string   "utid"
+    t.integer  "reader_id"
+    t.boolean  "visible"
+    t.boolean  "funded"
+    t.boolean  "member"
   end
 
 end

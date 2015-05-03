@@ -1,0 +1,17 @@
+<%= form_for(@reader_event) do |f| %>
+  <% if @reader_event.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@reader_event.errors.count, "error") %> prohibited this reader_event from being saved:</h2>
+
+      <ul>
+      <% @reader_event.errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="actions">
+    <%= f.submit %>
+  </div>
+<% end %>

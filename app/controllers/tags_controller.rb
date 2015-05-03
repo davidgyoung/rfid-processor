@@ -91,16 +91,20 @@ class TagsController < ApplicationController
   private
     # Use callbacks to share common setup or constraints between actions.
     def set_tag
-      @tag = Tag.find(params[:id])
+      begin
+        @tag = Tag.find(params[:id])
+      rescue ActiveRecord::RecordNotFound
+        @tag = Tag.find_by(tag_id: params[:id]) || raise(ActiveRecord::RecordNotFound.new)
+      end
     end
 
     # Never trust parameters from the scary internet, only allow the white list through.
     def tag_params
-      params.require(:tag).permit(:tag_id, :rssi, :antenna, :last_seen_at)
+      params.require(:tag).permit(:tag_id, :rssi, :antenna, :last_seen_at, :funded, :member)
     end
     
     def tag_in_array_params(hash)
-      hash.permit(:tag_id, :rssi, :antenna, :last_seen_at, :utid)
+      hash.permit(:tag_id, :rssi, :antenna, :last_seen_at, :utid, :funded, :member)
     end
 
   protected

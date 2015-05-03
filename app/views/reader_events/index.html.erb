@@ -1,0 +1,40 @@
+<h1>Most Recent Reader Events</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Flow Number</th>
+      <th>Event</th>
+      <th>Tag</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <% current_flow_number = nil %>
+    <% @reader_events.each do |reader_event| %>    
+      <% current_flow_number ||= reader_event.flow_number %>
+      <% if reader_event.flow_number != current_flow_number %>
+      <tr>
+        <td>--</td>
+        <td>--</td>
+        <td>--</td>
+        <td>--</td>
+      </tr>
+
+      <%   current_flow_number = reader_event.flow_number %>
+      <% end %>
+      
+      <tr>
+        <td><%= reader_event.created_at %></td>
+        <td><%= reader_event.flow_number %></td>
+        <td><%= reader_event.event %></td>
+        <td><%= link_to reader_event.tag_id, Tag.find_by(tag_id: reader_event.tag_id) %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+
+<br>
+
+<%= link_to 'New Reader event', new_reader_event_path %>

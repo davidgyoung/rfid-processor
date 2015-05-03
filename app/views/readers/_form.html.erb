@@ -1,0 +1,43 @@
+<%= form_for(@reader) do |f| %>
+  <% if @reader.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@reader.errors.count, "error") %> prohibited this reader from being saved:</h2>
+
+      <ul>
+      <% @reader.errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= f.label :name %><br>
+    <%= f.text_field :name %>
+  </div>
+  <div class="field">
+    <%= f.label :description %><br>
+    <%= f.text_field :description %>
+  </div>
+  <div class="field">
+    <%= f.label :version %><br>
+    <%= f.text_field :version %>
+  </div>
+  <div class="field">
+    <%= f.label :ip_address %><br>
+    <%= f.text_field :ip_address %>
+  </div>
+  <div class="field">
+    <%= f.label :model %><br>
+    <%= f.text_field :model %>
+  </div>
+
+  <div class="field">
+    <%= f.label :last_seen_at %><br>
+    <%= f.date_select :last_seen_at %>
+  </div>
+
+  <div class="actions">
+    <%= f.submit %>
+  </div>
+<% end %>
