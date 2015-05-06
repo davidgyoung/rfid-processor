@@ -308,11 +308,11 @@ begin
           cloud_send_event(reader_id, flow_number, "tag found", tag)
           tag_info = cloud_read_tag_info(tag.id)
           if tag_info
-            cloud_send_event(reader_id, flow_number, "tag under funded contract? #{tag_info[:funded] ? "yes" : "no"}", tag)
+            cloud_send_event(reader_id, flow_number, "tag for member under paid contract? #{tag_info[:funded] ? "yes" : "no"}", tag)
             if tag_info[:funded]
               proceed = true
             else
-              cloud_send_event(reader_id, flow_number, "tag for a member? #{tag_info[:member] ? "yes" : "no" }", tag)
+              cloud_send_event(reader_id, flow_number, "tag for member with sufficent funds? #{tag_info[:member] ? "yes" : "no" }", tag)
               if tag_info[:member]
                 proceed = true
               end            
@@ -346,7 +346,7 @@ begin
               while (Time.now.to_i < start_time+cloud_authorize_timeout)
                 sleep(0.500) # pause 500 ms per flowchart
                 tag_info = cloud_read_tag_info(tag.id)                
-                proceed = tag_info && tag_info[:funded] || tag_info[:member]
+                proceed = tag_info && (tag_info[:funded] || tag_info[:member])
                 cloud_send_event(reader_id, flow_number, "Proceed message from cloud = #{proceed ? "yes" : "no"}", tag)            
                 if proceed
                   break
