@@ -8,8 +8,8 @@
       <th>RSSI</th>
       <th>Antenna</th>
       <th>Visible?</th>
-      <th>Funded?</th>
-      <th>Member?</th>
+      <th>Funded Member?</th>
+      <th>Paid Contract?</th>
       <th>Last seen at</th>
       <th></th>
         <!--
@@ -27,8 +27,8 @@
         <td><%= tag.rssi %></td>
         <td><%= tag.antenna %></td>
         <td><%= tag.visible %></td>
-        <td><%= tag.funded_member %></td>
-        <td><%= tag.paid_contract %></td>
+        <td><%= tag.funded %></td>
+        <td><%= tag.member %></td>
         <td><%= tag.last_seen_at %></td>
         <td><%= link_to 'Edit', edit_tag_path(tag) %></td>
         <!--

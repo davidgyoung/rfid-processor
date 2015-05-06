@@ -10,10 +10,22 @@ require 'uri'
 @utid_cache ={}
 
 def logfile
-  @logfile ||= File.open("/tmp/interactive-flow.log", "a")
+  @logfile ||= File.open("/tmp/interactive-flow.log", "w")
+end
+
+def restart_log_periodically
+  # restart log file every 15 minutes so we don't run out of disk space
+  if !@logfile_start_time || Time.now - @logfile_start_time > 15*60
+    @logfile_start_time = Time.now
+    if @logfile
+      @logfile.close
+      @logfile = nil  
+    end
+  end
 end
 
 def log(line)
+  restart_log_periodically
   puts line
   logfile.puts("#{Time.now} #{line}") 
   logfile.flush
