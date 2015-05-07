@@ -3,8 +3,8 @@
 <table>
   <thead>
     <tr>
-      <th>Time</th>
-      <th>Flow Number</th>
+      <th>Time</th>      
+      <th>Reader</th>
       <th>Event</th>
       <th>Tag</th>
     </tr>
@@ -27,7 +27,7 @@
       
       <tr>
         <td><%= reader_event.created_at %></td>
-        <td><%= reader_event.flow_number %></td>
+        <td><%= link_to reader_event.reader.name, reader_event.reader %></td>
         <td><%= reader_event.event %></td>
         <td><%= link_to reader_event.tag_id, Tag.find_by(tag_id: reader_event.tag_id) %></td>
       </tr>

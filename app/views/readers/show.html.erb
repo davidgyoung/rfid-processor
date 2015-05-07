@@ -1,4 +1,29 @@
 <p id="notice"><%= notice %></p>
 
+<p>
+  <strong>Name:</strong>
+  <%= @reader.name %>
+</p>
+
+<p>
+  <strong>Action:</strong>
+  <%= @reader.action %>
+</p>
+
+<%= form_for(@reader) do |f| %>
+  <%= f.hidden_field :action, :value => "proceed" %>
+  <%= f.submit "Proceed", :name => "Proceed" %>
+<% end %>
+
+<%= form_for(@reader) do |f| %>
+  <%= f.hidden_field :action, :value => "cancel" %>
+  <%= f.submit "Cancel", :name => "Cancel" %>
+<% end %>
+
+<p>
+  <strong><%= link_to 'Show Reader Events', reader_events_path %> 
+</strong>
+</p>
+
 <%= link_to 'Edit', edit_reader_path(@reader) %> |
 <%= link_to 'Back', readers_path %>

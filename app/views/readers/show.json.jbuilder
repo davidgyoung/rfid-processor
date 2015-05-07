@@ -1,1 +1,1 @@
-json.extract! @reader, :id, :created_at, :updated_at
+json.extract! @reader, :id, :action, :created_at, :updated_at

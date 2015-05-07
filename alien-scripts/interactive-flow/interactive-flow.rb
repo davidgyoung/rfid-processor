@@ -246,6 +246,54 @@ EVENTJSONEND
   return nil
 end
 
+def cloud_get_proceed_or_cancel(id)
+  message = nil
+  if id
+    tag_info = cloud_read_tag_info(tag.id)
+	if(tag_info && (tag_info[:funded] || tag_info[:member]))
+	  message = "proceed"
+	end
+  end
+end
+
+def do_red_flow(reader, reader_id, flow_number, tag)
+  proceed = false
+  # red flow
+  cloud_send_event(reader_id, flow_number, "Stop (RED)", tag)
+  cloud_send_event(reader_id, flow_number, "external output = 2", tag)            
+  r.gpio = "2"
+  start_time = Time.now.to_i
+  cloud_authorize_timeout = 60 # seconds
+  while (Time.now.to_i < start_time+cloud_authorize_timeout)
+	sleep(0.500) # pause 500 ms per flowchart
+	message = cloud_get_proceed_or_cancel(tag)
+	cloud_send_event(reader_id, flow_number, "Proceed message from cloud = #{message}", tag)            
+	if message == "proceed"
+	  proceed = true
+	  break
+    elsif message == "cancel"
+      proceed = false
+      break
+    end
+  end
+  if proceed
+	# green flow
+	cloud_send_event(reader_id, flow_number, "Proceed (GREEN)", tag)
+	cloud_send_event(reader_id, flow_number, "external output = 5", tag)            
+	begin
+	  r.gpio = "5"
+	rescue
+	  log "Cannot set gpio to 5 on this reader"
+	end
+	sleep(0.050) # pause 50 ms per flowchart
+	cloud_send_event(reader_id, flow_number, "external output = 0", tag)
+  else
+	cloud_send_event(reader_id, flow_number, "timeout", tag)                
+	cloud_send_event(reader_id, flow_number, "external output = 0", tag)
+	r.gpio = "0"
+  end              
+end
+
 begin
   # Grab various parameters out of a configuration file
   config = nil
@@ -306,13 +354,12 @@ begin
         reader_id = post_tags(r, reader_data, tags)
         
         # Start of Flowchart
+        log "Starting flowchart"
+        # flowchart variables
+        flow_number = Time.now.to_i
+        proceed = false
+        timeout = false
         if (tags.size > 0)
-          log "Starting flowchart"
-          # flowchart variables
-          flow_number = Time.now.to_i
-          proceed = false
-          timeout = false
-
           # Question: figure out which tag to process if there are multiple.  
           #  RSSI?  biggest by absolute value?   smallest by absolute value?
           #  For now, always do the first one          
@@ -349,45 +396,20 @@ begin
               sleep(0.50) # pause 50 ms per flowchart
               cloud_send_event(reader_id, flow_number, "external output = 0", tag)            
             else
-              # red flow
-              cloud_send_event(reader_id, flow_number, "Stop (RED)", tag)
-              cloud_send_event(reader_id, flow_number, "external output = 2", tag)            
-              r.gpio = "2"
-              start_time = Time.now.to_i
-              cloud_authorize_timeout = 60 # seconds
-              while (Time.now.to_i < start_time+cloud_authorize_timeout)
-                sleep(0.500) # pause 500 ms per flowchart
-                tag_info = cloud_read_tag_info(tag.id)                
-                proceed = tag_info && (tag_info[:funded] || tag_info[:member])
-                cloud_send_event(reader_id, flow_number, "Proceed message from cloud = #{proceed ? "yes" : "no"}", tag)            
-                if proceed
-                  break
-                end
-                # TODO: implement cancel from attendant.  check by reading data for reader
-              end
-              if proceed
-                # green flow
-                cloud_send_event(reader_id, flow_number, "Proceed (GREEN)", tag)
-                cloud_send_event(reader_id, flow_number, "external output = 5", tag)            
-                begin
-                  r.gpio = "5"
-                rescue
-                  log "Cannot set gpio to 5 on this reader"
-                end
-                sleep(0.050) # pause 50 ms per flowchart
-                cloud_send_event(reader_id, flow_number, "external output = 0", tag)
-              else
-                cloud_send_event(reader_id, flow_number, "timeout", tag)                
-                cloud_send_event(reader_id, flow_number, "external output = 0", tag)
-                r.gpio = "0"
-              end              
+              do_red_flow(reader, reader_id, flow_number, tag)
             end            
           end
-          cloud_send_event(reader_id, flow_number, "end of flowchart", tag)      
         else 
-          # Question: No tags visible.  How do we trigger a transient event flow, vs. doing 
-          # nothing?
+          # No tags visible.  Check to see if somebody has been detected without a tag
+          vehicle_detected = reader.gpio & 0x01 == 0x01 
+          if vehicle_detected
+            cloud_send_event(reader_id, flow_number, "Vehicle detected.  Input[0]=1"            
+          else
+            cloud_send_event(reader_id, flow_number, "Vehicle not detected.  Input[0]=0"
+            do_red_flow(reader, reader_id, flow_number, nil)
+          end          
         end
+        cloud_send_event(reader_id, flow_number, "end of flowchart", tag)                																																																		
       else 
         log "Failed opening reader"
       end

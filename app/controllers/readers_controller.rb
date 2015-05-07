@@ -30,6 +30,7 @@ class ReadersController < ApplicationController
     @reader = Reader.find_by(mac_address: reader_params[:mac_address])
     if @reader
       logger.debug "Existing reader: #{@reader}"
+      Reader.update(reader_params.merge(action: nil))
     else
       @reader = Reader.new(reader_params)
     end
@@ -101,7 +102,7 @@ class ReadersController < ApplicationController
     # Never trust parameters from the scary internet, only allow the white list through.
     def reader_params
       params.require(:reader).permit(:name, :description, :mac_address, :ip_address, 
-                                     :version, :model, :last_updated_at)
+                                     :version, :model, :last_updated_at, :action)
     end
 
     def tags_params
