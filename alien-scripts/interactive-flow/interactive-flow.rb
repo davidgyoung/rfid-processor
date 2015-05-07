@@ -209,6 +209,42 @@ def cloud_read_tag_info(tag_id)
   return nil
 end
 
+def cloud_read_reader_info(reader_id)
+  retries = 0
+  begin
+    log "Getting reader info: /readers/#{URI::escape(reader_id)}"
+    uri = URI.parse(SERVER)  
+    connection = Net::HTTP.new(uri.host, uri.port)
+    connection.open_timeout = 1
+    connection.read_timeout = 1
+
+    connection.start do |http|
+      request = Net::HTTP::Get.new("/readers/#{URI::escape(reader_id)}")
+      request['Accept'] = 'application/json'
+      response = http.request(request)
+      if response.code > "299"
+        log "error getting reader data: #{response.code}"
+      else
+        log "success getting reader data: #{response.body}"
+        # Ugh.  JSON is not available on Ruby 1.8.7.  And the platform has no
+        # rubygems.  So we must parse json in a very ghetto way
+        result = {}
+        if response.body.match(/"action":([^,^}]+)/)
+          result[:action] = $1
+        end
+        return result
+      end    
+    end    
+  rescue Timeout::Error
+    log "timeout talking to server!"
+    if retries < 2
+      retries += 1
+      retry
+    end
+  end
+  return nil
+end
+
 def cloud_send_event(reader_id, flow_number, event, tag) 
   retries = 0
   begin
@@ -246,14 +282,18 @@ EVENTJSONEND
   return nil
 end
 
-def cloud_get_proceed_or_cancel(id)
+def cloud_get_proceed_or_cancel(tag_id, reader_id)
   message = nil
-  if id
-    tag_info = cloud_read_tag_info(tag.id)
+  if tag_id
+    tag_info = cloud_read_tag_info(tag_id)
 	if(tag_info && (tag_info[:funded] || tag_info[:member]))
 	  message = "proceed"
 	end
+  else
+    reader_info = cloud_read_reader_info(reader_id)
+    message = reader_info[:action]  
   end
+  message
 end
 
 def do_red_flow(reader, reader_id, flow_number, tag)
@@ -266,7 +306,7 @@ def do_red_flow(reader, reader_id, flow_number, tag)
   cloud_authorize_timeout = 60 # seconds
   while (Time.now.to_i < start_time+cloud_authorize_timeout)
 	sleep(0.500) # pause 500 ms per flowchart
-	message = cloud_get_proceed_or_cancel(tag)
+	message = cloud_get_proceed_or_cancel(tag.tag_id, reader_id)
 	cloud_send_event(reader_id, flow_number, "Proceed message from cloud = #{message}", tag)            
 	if message == "proceed"
 	  proceed = true
@@ -396,17 +436,17 @@ begin
               sleep(0.50) # pause 50 ms per flowchart
               cloud_send_event(reader_id, flow_number, "external output = 0", tag)            
             else
-              do_red_flow(reader, reader_id, flow_number, tag)
+              do_red_flow(r, reader_id, flow_number, tag)
             end            
           end
         else 
           # No tags visible.  Check to see if somebody has been detected without a tag
-          vehicle_detected = reader.gpio & 0x01 == 0x01 
+          vehicle_detected = r.gpio & 0x01 == 0x01 
           if vehicle_detected
-            cloud_send_event(reader_id, flow_number, "Vehicle detected.  Input[0]=1"            
+            cloud_send_event(reader_id, flow_number, "Vehicle detected.  Input[0]=1" )           
           else
-            cloud_send_event(reader_id, flow_number, "Vehicle not detected.  Input[0]=0"
-            do_red_flow(reader, reader_id, flow_number, nil)
+            cloud_send_event(reader_id, flow_number, "Vehicle not detected.  Input[0]=0")
+            do_red_flow(r, reader_id, flow_number, nil)
           end          
         end
         cloud_send_event(reader_id, flow_number, "end of flowchart", tag)                																																																		

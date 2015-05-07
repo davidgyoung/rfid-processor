@@ -30,7 +30,7 @@ class ReadersController < ApplicationController
     @reader = Reader.find_by(mac_address: reader_params[:mac_address])
     if @reader
       logger.debug "Existing reader: #{@reader}"
-      Reader.update(reader_params.merge(action: nil))
+      @reader.update(reader_params.merge(action: nil))
     else
       @reader = Reader.new(reader_params)
     end
