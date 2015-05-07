@@ -161,6 +161,7 @@ def post_tags(r, reader_data, tags)
 end
 
 def cloud_read_tag_info(tag_id)
+  tag_id = tag_id.to_s
   retries = 0
   begin
     log "Getting tag info: /tags/#{URI::escape(tag_id)}"
@@ -212,14 +213,14 @@ end
 def cloud_read_reader_info(reader_id)
   retries = 0
   begin
-    log "Getting reader info: /readers/#{URI::escape(reader_id)}"
+    log "Getting reader info: /readers/#{reader_id}"
     uri = URI.parse(SERVER)  
     connection = Net::HTTP.new(uri.host, uri.port)
     connection.open_timeout = 1
     connection.read_timeout = 1
 
     connection.start do |http|
-      request = Net::HTTP::Get.new("/readers/#{URI::escape(reader_id)}")
+      request = Net::HTTP::Get.new("/readers/#{reader_id}")
       request['Accept'] = 'application/json'
       response = http.request(request)
       if response.code > "299"
@@ -229,7 +230,7 @@ def cloud_read_reader_info(reader_id)
         # Ugh.  JSON is not available on Ruby 1.8.7.  And the platform has no
         # rubygems.  So we must parse json in a very ghetto way
         result = {}
-        if response.body.match(/"action":([^,^}]+)/)
+        if response.body.match(/"action":"([^"]+)"/)
           result[:action] = $1
         end
         return result
@@ -260,7 +261,7 @@ def cloud_send_event(reader_id, flow_number, event, tag)
           "reader_id": "#{reader_id}",
           "flow_number": #{flow_number},
           "event": "#{event}",
-          "tag_id": "#{tag.id}" }
+          "tag_id": "#{tag.nil? ? "" : tag.id}" }
       }
 EVENTJSONEND
       request['Content-Type'] = 'application/json'
@@ -289,15 +290,17 @@ def cloud_get_proceed_or_cancel(tag_id, reader_id)
 	if(tag_info && (tag_info[:funded] || tag_info[:member]))
 	  message = "proceed"
 	end
-  else
+  end
+  if message == nil
     reader_info = cloud_read_reader_info(reader_id)
-    message = reader_info[:action]  
+    message = reader_info == nil ? nil : reader_info[:action]  
   end
   message
 end
 
-def do_red_flow(reader, reader_id, flow_number, tag)
+def do_red_flow(r, reader_id, flow_number, tag)
   proceed = false
+  cancel = false
   # red flow
   cloud_send_event(reader_id, flow_number, "Stop (RED)", tag)
   cloud_send_event(reader_id, flow_number, "external output = 2", tag)            
@@ -306,13 +309,13 @@ def do_red_flow(reader, reader_id, flow_number, tag)
   cloud_authorize_timeout = 60 # seconds
   while (Time.now.to_i < start_time+cloud_authorize_timeout)
 	sleep(0.500) # pause 500 ms per flowchart
-	message = cloud_get_proceed_or_cancel(tag.tag_id, reader_id)
+	message = cloud_get_proceed_or_cancel(tag.id, reader_id)
 	cloud_send_event(reader_id, flow_number, "Proceed message from cloud = #{message}", tag)            
 	if message == "proceed"
 	  proceed = true
 	  break
     elsif message == "cancel"
-      proceed = false
+      cancel = true
       break
     end
   end
@@ -327,6 +330,10 @@ def do_red_flow(reader, reader_id, flow_number, tag)
 	end
 	sleep(0.050) # pause 50 ms per flowchart
 	cloud_send_event(reader_id, flow_number, "external output = 0", tag)
+  elsif cancel
+	cloud_send_event(reader_id, flow_number, "cancel", tag)                  
+	cloud_send_event(reader_id, flow_number, "external output = 0", tag)
+	r.gpio = "0"
   else
 	cloud_send_event(reader_id, flow_number, "timeout", tag)                
 	cloud_send_event(reader_id, flow_number, "external output = 0", tag)
@@ -404,6 +411,7 @@ begin
           #  RSSI?  biggest by absolute value?   smallest by absolute value?
           #  For now, always do the first one          
           tag = tags[0]
+          log "Tag id is #{tag.id}"
           cloud_send_event(reader_id, flow_number, "tag found", tag)
           tag_info = cloud_read_tag_info(tag.id)
           if tag_info
@@ -440,12 +448,13 @@ begin
             end            
           end
         else 
+          tag = nil
           # No tags visible.  Check to see if somebody has been detected without a tag
-          vehicle_detected = r.gpio & 0x01 == 0x01 
+          vehicle_detected = r.gpio.to_i & 0x01 == 0x01 
           if vehicle_detected
-            cloud_send_event(reader_id, flow_number, "Vehicle detected.  Input[0]=1" )           
+            cloud_send_event(reader_id, flow_number, "Vehicle detected.  Input[0]=1", tag )           
           else
-            cloud_send_event(reader_id, flow_number, "Vehicle not detected.  Input[0]=0")
+            cloud_send_event(reader_id, flow_number, "Vehicle not detected.  Input[0]=0", tag)
             do_red_flow(r, reader_id, flow_number, nil)
           end          
         end
