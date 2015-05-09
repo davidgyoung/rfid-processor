@@ -26,6 +26,7 @@ class ReaderEventsController < ApplicationController
   # POST /reader_events
   # POST /reader_events.json
   def create
+    ReaderEvent.where("created_at < :time", {:time => 3.minutes.ago}).each{|event| event.destroy}
     @reader_event = ReaderEvent.new(reader_event_params)
 
     respond_to do |format|
