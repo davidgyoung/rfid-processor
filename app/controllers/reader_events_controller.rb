@@ -5,7 +5,7 @@ class ReaderEventsController < ApplicationController
   # GET /reader_events
   # GET /reader_events.json
   def index
-    ReaderEvent.where("created_at < :time", {:time => 5.minutes.ago}).each{|event| event.destroy}
+    ReaderEvent.where("created_at < :time", {:time => 3.minutes.ago}).each{|event| event.destroy}
     @reader_events = ReaderEvent.all.order(flow_number: :asc, id: :asc)
   end
 

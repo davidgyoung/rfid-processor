@@ -309,7 +309,7 @@ def do_red_flow(r, reader_id, flow_number, tag)
   cloud_authorize_timeout = 60 # seconds
   while (Time.now.to_i < start_time+cloud_authorize_timeout)
 	sleep(0.500) # pause 500 ms per flowchart
-	message = cloud_get_proceed_or_cancel(tag.id, reader_id)
+	message = cloud_get_proceed_or_cancel(tag ? tag.id : nil, reader_id)
 	cloud_send_event(reader_id, flow_number, "Proceed message from cloud = #{message}", tag)            
 	if message == "proceed"
 	  proceed = true
@@ -364,16 +364,17 @@ begin
       end
       
       if open
-        log "r is #{r}"
         reader_data = {}
         reader_data[:name] = r.readername
         reader_data[:version] = r.readerversion
         reader_data[:type] = type = r.readertype
         reader_data[:mac_address] = r.macaddress
         available_antennas = r.antennastatus
-        log "Connected antenna ports: #{available_antennas}" # returns something like "0 1"
+        log "Reader name: #{reader_data[:name]}"
+        no_detection_capability = reader_data[:name] == "Commutyble_TestReader"
+        #log "Connected antenna ports: #{available_antennas}" # returns something like "0 1"
 
-        log "GPIO state is #{r.gpio.to_i.to_s(2)}"
+        #log "GPIO state is #{r.gpio.to_i.to_s(2)}"
         #old_rf_level = r.rflevel
 
 	    # our reader returns power in dBm *10 
@@ -392,44 +393,58 @@ begin
 	    #r.rflevel='276'
 	    #log 'RF Level: ' + (r.rflevel.to_f / 10).to_s + 'dBm'
 
-	    log 'Set RF modulation mode to Dense Reader Mode...'
-	    r.rfmodulation='drm' 
-	    log 'RF Modulation: ' + r.rfmodulation
 
-	    scan_init(r)	
-        tags = parse_tags(r.taglist)
-        reader_id = post_tags(r, reader_data, tags)
+        vehicle_detected = r.gpio.to_i & 0x01 == 0x01 
+        if vehicle_detected || no_detection_capability
+          flow_number = Time.now.to_i
+          proceed = false
+          timeout = false
+          tag = nil
+
+  	      log 'Set RF modulation mode to Dense Reader Mode...'
+	      r.rfmodulation='drm' 
+	      log 'RF Modulation: ' + r.rfmodulation
+
+	      scan_init(r)	
+	      log "parse tags"
+          tags = parse_tags(r.taglist)
+          log "post tags"
+          reader_id = post_tags(r, reader_data, tags)
         
-        # Start of Flowchart
-        log "Starting flowchart"
-        # flowchart variables
-        flow_number = Time.now.to_i
-        proceed = false
-        timeout = false
-        if (tags.size > 0)
-          # Question: figure out which tag to process if there are multiple.  
-          #  RSSI?  biggest by absolute value?   smallest by absolute value?
-          #  For now, always do the first one          
-          tag = tags[0]
-          log "Tag id is #{tag.id}"
-          cloud_send_event(reader_id, flow_number, "tag found", tag)
-          tag_info = cloud_read_tag_info(tag.id)
-          if tag_info
-            cloud_send_event(reader_id, flow_number, "tag for member under paid contract? #{tag_info[:funded] ? "yes" : "no"}", tag)
-            if tag_info[:funded]
-              proceed = true
+          if (tags.size > 0)
+            if tags.size > 1
+              tags.each do |tag_candidate|
+                log "comparing rssi between #{tag} and #{tag_candidate}"
+                if !tag || tag_candidate.rssi < tag.rssi
+                  tag = tag_candidate
+                end
+              end
+              cloud_send_event(reader_id, flow_number, "Multiple vehicles present.  Choosing one with lowest magniture RSSI of: "+tag.rssi, tag )          
             else
-              cloud_send_event(reader_id, flow_number, "tag for member with sufficent funds? #{tag_info[:member] ? "yes" : "no" }", tag)
-              if tag_info[:member]
-                proceed = true
-              end            
+              cloud_send_event(reader_id, flow_number, "Single vehicle present.  Choosing one with lowest magniture RSSI of: "+tag.rssi, tag )          
+              tag = tags[0]
             end
-          else
-            timeout = true
-            cloud_send_event(reader_id, flow_number, "Cannot get tag info (timeout)", tag)            
           end
+
+          if tag
+            tag_info = cloud_read_tag_info(tag.id)
+            if tag_info
+              cloud_send_event(reader_id, flow_number, "tag for member under paid contract? #{tag_info[:funded] ? "yes" : "no"}", tag)
+              if tag_info[:funded]
+                proceed = true
+              else
+                cloud_send_event(reader_id, flow_number, "tag for member with sufficent funds? #{tag_info[:member] ? "yes" : "no" }", tag)
+                if tag_info[:member]
+                  proceed = true
+                end            
+              end
+            else
+              timeout = true
+            end
+          end
+          
           if (timeout)
-              cloud_send_event(reader_id, flow_number, "Cannot get tag info (timeout)", tag)            
+            cloud_send_event(reader_id, flow_number, "Cannot get tag info (timeout)", tag)            
             r.gpio = "0"
           else
             if proceed
@@ -447,18 +462,8 @@ begin
               do_red_flow(r, reader_id, flow_number, tag)
             end            
           end
-        else 
-          tag = nil
-          # No tags visible.  Check to see if somebody has been detected without a tag
-          vehicle_detected = r.gpio.to_i & 0x01 == 0x01 
-          if vehicle_detected
-            cloud_send_event(reader_id, flow_number, "Vehicle detected.  Input[0]=1", tag )           
-          else
-            cloud_send_event(reader_id, flow_number, "Vehicle not detected.  Input[0]=0", tag)
-            do_red_flow(r, reader_id, flow_number, nil)
-          end          
+          cloud_send_event(reader_id, flow_number, "end of flowchart", tag)                																																																		
         end
-        cloud_send_event(reader_id, flow_number, "end of flowchart", tag)                																																																		
       else 
         log "Failed opening reader"
       end
@@ -469,9 +474,8 @@ begin
       r.close if r != nil
       r = nil
     end
-    r=nil
-    log "rerunning in 1 second"
-    sleep 1
+    log "rerunning in 500 ms"
+    sleep 0.5
   end  
 rescue => exception
   # Print out any errors
