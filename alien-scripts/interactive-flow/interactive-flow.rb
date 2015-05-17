@@ -7,6 +7,8 @@ require 'alientag'
 require 'net/http'
 require 'uri'
 
+SCAN_WAIT_TIME = 1 # seconds
+
 @utid_cache ={}
 
 def logfile
@@ -131,7 +133,17 @@ def scan_init(reader)
   reader.taglistformat("custom")
   reader.tagtype ='16'
   reader.autoaction = 'acquire'
-  reader.autostarttrigger='0 0'
+  reader.automodereset
+  if reader.readername == "Commutyble_TestReader"
+    # There are no inputs telling you when a tag is present on the test reader, so you
+    # can never expect to see the input go from 0 to 1
+    reader.autostarttrigger='0 0'
+  else
+    # Only acquire when the input goes from 0 to 1
+    reader.autostarttrigger='0 1'
+    reader.autostoppause='1000' # read tags 1000 ms after start trigger
+    #reader.autostoptrigger='0 0'
+  end
   reader.automode='on'
   log "done initializing aquire parameters"
 end
@@ -306,7 +318,7 @@ def do_red_flow(r, reader_id, flow_number, tag)
   cloud_send_event(reader_id, flow_number, "external output = 2", tag)            
   r.gpio = "2"
   start_time = Time.now.to_i
-  cloud_authorize_timeout = 60 # seconds
+  cloud_authorize_timeout = 2 # seconds
   while (Time.now.to_i < start_time+cloud_authorize_timeout)
 	sleep(0.500) # pause 500 ms per flowchart
 	message = cloud_get_proceed_or_cancel(tag ? tag.id : nil, reader_id)
@@ -352,6 +364,10 @@ begin
   end
   r = nil
   # Do this forever, if there are errors, start over
+  first_pass = true
+  vehicle_detected = false
+  vehicle_detected_at = nil
+  reader_data = {}
   loop do
     begin
       open = true
@@ -364,48 +380,60 @@ begin
       end
       
       if open
-        reader_data = {}
-        reader_data[:name] = r.readername
-        reader_data[:version] = r.readerversion
-        reader_data[:type] = type = r.readertype
-        reader_data[:mac_address] = r.macaddress
-        available_antennas = r.antennastatus
-        log "Reader name: #{reader_data[:name]}"
-        no_detection_capability = reader_data[:name] == "Commutyble_TestReader"
-        #log "Connected antenna ports: #{available_antennas}" # returns something like "0 1"
+        if first_pass
+          first_pass = false
+          reader_data[:name] = r.readername
+          reader_data[:version] = r.readerversion
+          reader_data[:type] = type = r.readertype
+          reader_data[:mac_address] = r.macaddress
+          available_antennas = r.antennastatus
+          log "Reader name: #{reader_data[:name]}"
+          no_detection_capability = reader_data[:name] == "Commutyble_TestReader"
+          #log "Connected antenna ports: #{available_antennas}" # returns something like "0 1"
 
-        #log "GPIO state is #{r.gpio.to_i.to_s(2)}"
-        #old_rf_level = r.rflevel
+          #log "GPIO state is #{r.gpio.to_i.to_s(2)}"
+          #old_rf_level = r.rflevel
 
-	    # our reader returns power in dBm *10 
-	    #log 'Current RF Power: ' + ( old_rf_level.to_f / 10 ).to_s + 'dBm'
+	      # our reader returns power in dBm *10 
+	      #log 'Current RF Power: ' + ( old_rf_level.to_f / 10 ).to_s + 'dBm'
 
-	    # grab the current antenna configuration
-	    #old_antenna_sequence = r.antennasequence	
-	    #log 'Current Antenna Sequence: ' + old_antenna_sequence 
+	      # grab the current antenna configuration
+	      #old_antenna_sequence = r.antennasequence	
+	      #log 'Current Antenna Sequence: ' + old_antenna_sequence 
 
-	    # set the reader to use all the connected antennas
-	    #log 'Change antenna sequence to all available antennas... ' 
-	    #r.antennasequence = available_antennas
-	    #log 'New antenna sequence: ' + r.antennasequence
+  	      # set the reader to use all the connected antennas
+  	      #log 'Change antenna sequence to all available antennas... ' 
+	      #r.antennasequence = available_antennas
+	      #log 'New antenna sequence: ' + r.antennasequence
 
-	    #log 'Try to change power to 30.0dBm... ' 
-	    #r.rflevel='276'
-	    #log 'RF Level: ' + (r.rflevel.to_f / 10).to_s + 'dBm'
+	      #log 'Try to change power to 30.0dBm... ' 
+	      #r.rflevel='276'
+	      #log 'RF Level: ' + (r.rflevel.to_f / 10).to_s + 'dBm'
+  	      log 'Set RF modulation mode to Dense Reader Mode...'
+	      r.rfmodulation='drm'
+	      log 'RF Modulation: ' + r.rfmodulation
+	      scan_init(r)	
+	    end
 
-
-        vehicle_detected = r.gpio.to_i & 0x01 == 0x01 
-        if vehicle_detected || no_detection_capability
+		input = r.gpio.to_i
+		log "input is #{input} old vehicle_detected_at #{vehicle_detected_at}"
+        vehicle_detected = input & 0x01 == 0x01
+        if vehicle_detected
+          vehicle_detected_at = Time.now if !vehicle_detected_at
+          log "vehicle detected at #{vehicle_detected_at}"
+          log "since #{Time.now-vehicle_detected_at}"
+          r.automode='on'
+        else
+          vehicle_detected_at = nil
+        end
+                
+        if no_detection_capability || (vehicle_detected && Time.now-vehicle_detected_at > SCAN_WAIT_TIME)
+          r.automode='off' # need to turn off and back on later or we don't read more tags
           flow_number = Time.now.to_i
           proceed = false
           timeout = false
           tag = nil
 
-  	      log 'Set RF modulation mode to Dense Reader Mode...'
-	      r.rfmodulation='drm' 
-	      log 'RF Modulation: ' + r.rfmodulation
-
-	      scan_init(r)	
 	      log "parse tags"
           tags = parse_tags(r.taglist)
           log "post tags"
@@ -419,11 +447,13 @@ begin
                   tag = tag_candidate
                 end
               end
-              cloud_send_event(reader_id, flow_number, "Multiple vehicles present.  Choosing one with lowest magniture RSSI of: "+tag.rssi, tag )          
+              cloud_send_event(reader_id, flow_number, "Multiple tags present.  Choosing one with lowest magniture RSSI of: "+tag.rssi, tag )          
             else
-              cloud_send_event(reader_id, flow_number, "Single vehicle present.  Choosing one with lowest magniture RSSI of: "+tag.rssi, tag )          
               tag = tags[0]
+              cloud_send_event(reader_id, flow_number, "Single tag present with RSSI of: "+tag.rssi, tag )          
             end
+          else
+              cloud_send_event(reader_id, flow_number, "No tag present.  Transient flow.", tag )                    
           end
 
           if tag
@@ -462,7 +492,8 @@ begin
               do_red_flow(r, reader_id, flow_number, tag)
             end            
           end
-          cloud_send_event(reader_id, flow_number, "end of flowchart", tag)                																																																		
+          cloud_send_event(reader_id, flow_number, "end of flowchart", tag)
+          log "resetting vehicle_detected_at"
         end
       else 
         log "Failed opening reader"
